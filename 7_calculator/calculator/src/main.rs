@@ -1,16 +1,13 @@
-integer = @{ ASCII_DIGIT+ }
-atom = _{ unary_minus? ~ primary }
-bin_op = _{ add | subtract | multiply | divide }
-	add = { "+" }
-	subtract = { "-" }
-	multiply = { "*" }
-	divide = { "/" }
+use pest::Parser;
+use pest::pratt_parser::PrattParser;
+use pest::iterators::Pairs;
+use std::io::{self, BufRead};
+use lazy_static::lazy_static;
+use pest_derive::Parser;
 
-expr = { atom ~ (bin_op ~ atom)* }
-WHITESPACE = _{ " " }
-equation = _{ SOI ~ expr ~ EOI }
-unary_minus = { "-" }
-primary = _{ integer | "(" ~ expr ~ ")" }
+#[derive(Parser)]
+#[grammar = "calculator.pest"]
+pub struct CalculatorParser;
 
 #[derive(Debug)]
 pub enum Expr {
@@ -32,7 +29,7 @@ pub enum Op {
     Modulo,
 }
 
-lazy_static::lazy_static! {
+lazy_static! {
     static ref PRATT_PARSER: PrattParser<Rule> = {
         use pest::pratt_parser::{Assoc::*, Op};
         use Rule::*;
@@ -42,6 +39,26 @@ lazy_static::lazy_static! {
             .op(Op::infix(multiply, Left) | Op::infix(divide, Left) | Op::infix(modulo, Left))
             .op(Op::prefix(unary_minus))
     };
+}
+
+impl Expr {
+    pub fn evaluate(&self) -> i32 {
+        match self {
+            Expr::Integer(value) => *value,
+            Expr::UnaryMinus(expr) => -expr.evaluate(),
+            Expr::BinOp { lhs, op, rhs } => {
+                let left = lhs.evaluate();
+                let right = rhs.evaluate();
+                match op {
+                    Op::Add => left + right,
+                    Op::Subtract => left - right,
+                    Op::Multiply => left * right,
+                    Op::Divide => left / right,
+                    Op::Modulo => left % right,
+                }
+            }
+        }
+    }
 }
 
 pub fn parse_expr(pairs: Pairs<Rule>) -> Expr {
@@ -71,18 +88,14 @@ pub fn parse_expr(pairs: Pairs<Rule>) -> Expr {
             _ => unreachable!(),
         })
         .parse(pairs)
-
 }
 
 fn main() -> io::Result<()> {
     for line in io::stdin().lock().lines() {
         match CalculatorParser::parse(Rule::equation, &line?) {
             Ok(mut pairs) => {
-                println!(
-                    "Parsed: {:#?}",
-        
-                    parse_expr(pairs.next().unwrap().into_inner())
-                );
+                let expr = parse_expr(pairs.next().unwrap().into_inner());
+                println!("Result: {}", expr.evaluate());
             }
             Err(e) => {
                 eprintln!("Parse failed: {:?}", e);
