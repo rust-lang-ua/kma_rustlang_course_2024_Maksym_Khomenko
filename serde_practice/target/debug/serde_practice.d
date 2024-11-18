@@ -1,0 +1,1 @@
+C:\Users\Max\rust-learning-path\kma_rustlang_course_2024_Maksym_Khomenko\6_serde\serde_practice\target\debug\serde_practice.exe: C:\Users\Max\rust-learning-path\kma_rustlang_course_2024_Maksym_Khomenko\6_serde\serde_practice\src\main.rs
