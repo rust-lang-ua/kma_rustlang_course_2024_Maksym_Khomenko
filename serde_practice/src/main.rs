@@ -1,5 +1,6 @@
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
+use serde::{Deserializer, Serializer};
 use serde_yaml::to_string as to_yaml;
 use std::fs::File;
 use std::io::Read;
@@ -64,6 +65,13 @@ struct Request {
     debug: Debug,
 }
 
+#[derive(Debug, Serialize, Deserialize)]
+struct Event {
+    name: String,
+    #[serde(serialize_with = "serialize_date", deserialize_with = "deserialize_date")]
+    date: String,
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -83,6 +91,21 @@ mod tests {
     }
 }
 
+fn serialize_date<S>(date: &str, serializer: S) -> Result<S::Ok, S::Error>
+where
+    S: Serializer,
+{
+    serializer.serialize_str(&format!("Date: {}", date))
+}
+
+fn deserialize_date<'de, D>(deserializer: D) -> Result<String, D::Error>
+where
+    D: Deserializer<'de>,
+{
+    let s: &str = Deserialize::deserialize(deserializer)?;
+    Ok(s.replace("Date: ", ""))
+}
+
 fn main() {
     let mut file = File::open("request.json").unwrap();
     let mut json_str = String::new();
@@ -95,4 +118,15 @@ fn main() {
 
     let toml_str = to_toml(&request).unwrap();
     println!("TOML:\n{}", toml_str);
+
+    let event = Event {
+        name: "concert".to_string(),
+        date: "2024-11-15".to_string(),
+    };
+
+    let json = serde_json::to_string(&event).expect("serialization error");
+    println!("serialized JSON with custom data: {}", json);
+
+    let deserialized_event: Event = serde_json::from_str(&json).expect("serialization error");
+    println!("deserialized event: {:?}", deserialized_event);
 }
